@@ -5,6 +5,8 @@ import {
   Body,
   Req,
   UseGuards,
+  Patch,
+  Param,
 } from '@nestjs/common';
 
 import { ProduitService } from './produit.service';
@@ -37,7 +39,20 @@ export class ProduitController {
       req.user.userId,
     );
   }
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('vendor')
+  @Patch(':id/stock')
+  updateStock(
+    @Param('id') id: string,
+    @Req() req,
+    @Body() body: { quantity: number },
+  ) {
+    return this.produitService.updateStock(
+      id,
+      body.quantity,
+      req.user.userId,
+    );
+  }
 
   @Get()
   findAll(@Query() filter: FilterProduitDto) {

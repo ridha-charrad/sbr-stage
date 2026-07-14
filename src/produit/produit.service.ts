@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Model } from 'mongoose';
 import { FilterProduitDto } from './dto/filter-produit.dto';
 import {
@@ -110,5 +114,38 @@ export class ProduitService {
         'sellerId',
         'firstName lastName email',
       );
+  }
+  async updateStock(
+    productId: string,
+    quantity: number,
+    vendorId: string,
+  ) {
+    const product = await this.produitModel.findById(productId);
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Seller can only modify his own products
+    if (product.sellerId.toString() !== vendorId) {
+      throw new ForbiddenException(
+        'You can only manage your own products',
+      );
+    }
+
+    product.stock += quantity;
+
+    if (product.stock < 0) {
+      throw new BadRequestException(
+        'Stock cannot be negative',
+      );
+    }
+
+    await product.save();
+
+    return {
+      message: 'Stock updated successfully',
+      stock: product.stock,
+    };
   }
 }
