@@ -9,8 +9,9 @@ import {
   ProduitSchema,
 } from './schemas/produit.schema';
 
+
 @Module({
-  imports: [
+  imports:[
     MongooseModule.forFeature([
       {
         name: Produit.name,
@@ -18,8 +19,17 @@ import {
       },
     ]),
   ],
-  controllers: [ProduitController],
-  providers: [ProduitService],
-  exports: [ProduitService],
+
+  controllers:[
+    ProduitController,
+  ],
+
+  providers:[
+    ProduitService,
+  ],
+
+  exports:[
+    ProduitService,
+  ],
 })
 export class ProduitModule {}

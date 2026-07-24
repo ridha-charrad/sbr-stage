@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -8,9 +10,28 @@ import { ProduitModule } from './produit/produit.module';
 import { MailModule } from './mail/mail.module';
 import { OrdersModule } from './orders/orders.module';
 
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
-  imports: [MongooseModule.forRoot('mongodb://localhost:27017/nexus'),UsersModule, AuthModule, ProduitModule, MailModule, OrdersModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+
+    MongooseModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGODB_URI'),
+      }),
+    }),
+
+    UsersModule,
+    AuthModule,
+    ProduitModule,
+    MailModule,
+    OrdersModule,
+    InventoryModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

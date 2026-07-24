@@ -3,8 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
 import { Order, OrderDocument, OrderItem } from './schemas/order.schema';
-import { Produit } from '../produit/schemas/produit.schema';
+import { Produit, ProduitDocument } from '../produit/schemas/produit.schema';
 import { FilterOrderDto } from './dto/filter-order.dto';
+import { InventoryService } from 'src/inventory/inventory.service';
 @Injectable()
 export class OrdersService {
   constructor(
@@ -12,63 +13,113 @@ export class OrdersService {
     private orderModel: Model<OrderDocument>,
 
     @InjectModel(Produit.name)
-    private produitModel: Model<Produit>,
+    private produitModel: Model<ProduitDocument>,
+
+    private readonly inventoryService: InventoryService,
   ) {}
 
   async createOrder(
-    userId: string,
-    items: { productId: string; quantity: number }[],
-  ) {
-    let totalPrice = 0;
+    userId:string,
+    items:{
+      productId:string;
+      quantity:number;
+    }[],
+  ){
 
-    const enrichedItems: OrderItem[] = [];
+  let totalPrice = 0;
 
-    for (const item of items) {
-      // Find the product
-      const product = await this.produitModel.findById(item.productId);
-      if (!product) {
-        throw new NotFoundException('Product not found');
-      }
-
-      // Product doesn't exist
+  const enrichedItems:OrderItem[]=[];
 
 
-      // Not enough stock
-      if (product.stock < item.quantity) {
-        throw new BadRequestException(
-          `${product.name} does not have enough stock`,
-        );
-      }
 
-      // Total for this product
-      const itemTotal = product.price * item.quantity;
+  for(const item of items){
 
-      // Add to order total
-      totalPrice += itemTotal;
 
-      // Build the snapshot
-      const orderItem: OrderItem ={
-        productId: product._id,
-        productName: product.name,
-        coverImage: product.coverImage,
-        platforms: product.platforms,
-        sellerId: product.sellerId,
-        quantity: item.quantity,
-        unitPrice: product.price,
-        itemTotal,
-      };
-      enrichedItems.push(orderItem);
-    }
+  const product =
+  await this.produitModel.findById(
+  item.productId
+  );
 
-    // Create the order
-    const order = await this.orderModel.create({
-      userId: new Types.ObjectId(userId),
-      items: enrichedItems,
-      totalPrice,
-      status: 'pending',
-    });
 
-    return order;
+
+  if(!product){
+
+  throw new NotFoundException(
+  'Product not found'
+  );
+
+  }
+
+
+
+
+  // RESERVE REAL INVENTORY
+  const reserved =
+  await this.inventoryService.reserveItems(
+  product._id.toString(),
+  userId,
+  item.quantity,
+  );
+
+
+
+
+  const itemTotal =
+  product.price * item.quantity;
+
+
+
+  totalPrice += itemTotal;
+
+
+
+  enrichedItems.push({
+
+  productId:product._id,
+
+  productName:product.name,
+
+  coverImage:product.coverImage,
+
+  platforms:product.platforms,
+
+  sellerId:product.sellerId,
+
+  quantity:item.quantity,
+
+  unitPrice:product.price,
+
+  itemTotal,
+
+
+  // save reserved accounts
+  inventoryItems:
+  reserved.map(
+  x=>x._id
+  ),
+
+  });
+
+
+  }
+
+
+
+
+  return this.orderModel.create({
+
+  userId:
+  new Types.ObjectId(userId),
+
+  items:enrichedItems,
+
+  totalPrice,
+
+  status:'pending',
+
+  });
+
+
   }
 
   async findUserOrders(
@@ -233,7 +284,7 @@ export class OrdersService {
   }
 
 
-async findVendorSales(
+  async findVendorSales(
     vendorId: string,
     filter: FilterOrderDto,
   ) {
